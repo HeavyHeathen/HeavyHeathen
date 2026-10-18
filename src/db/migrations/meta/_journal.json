@@ -8,6 +8,13 @@
       "when": 1792288011001,
       "tag": "0000_sturdy_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792289271862,
+      "tag": "0001_friendly_robbie_robertson",
+      "breakpoints": true
     }
   ]
 }

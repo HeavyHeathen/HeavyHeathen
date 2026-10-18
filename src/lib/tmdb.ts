@@ -1,5 +1,5 @@
 import { pickBestTrailer } from "./playlist";
-import type { Providers } from "@/db/schema";
+import type { Provider, Providers } from "@/db/schema";
 
 const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 
@@ -87,19 +87,21 @@ export async function getTrailerKey(id: number): Promise<string | null> {
 }
 
 export async function getProviders(id: number, region: string): Promise<Providers> {
+  type P = { provider_id: number; provider_name: string; logo_path?: string | null };
   const r = await get<{
     results: Record<string, { link?: string; flatrate?: P[]; rent?: P[]; buy?: P[] }>;
   }>(`/movie/${id}/watch/providers`);
-  type P = { provider_id: number; provider_name: string };
   const x = r.results[region] ?? {};
-  const map = (a?: P[]) => (a ?? []).map((p) => ({ id: p.provider_id, name: p.provider_name }));
+  const map = (a?: P[]) =>
+    (a ?? []).map((p) => ({ id: p.provider_id, name: p.provider_name, logoPath: p.logo_path ?? null }));
   return { flatrate: map(x.flatrate), rent: map(x.rent), buy: map(x.buy), link: x.link };
 }
 
-export async function listProviders(region: string): Promise<{ id: number; name: string }[]> {
-  const r = await get<{ results: { provider_id: number; provider_name: string }[] }>(
-    "/watch/providers/movie",
-    { watch_region: region },
-  );
-  return r.results.map((p) => ({ id: p.provider_id, name: p.provider_name }));
+export async function listProviders(region: string): Promise<Provider[]> {
+  const r = await get<{
+    results: { provider_id: number; provider_name: string; logo_path?: string | null; display_priority?: number }[];
+  }>("/watch/providers/movie", { watch_region: region });
+  return r.results
+    .sort((a, b) => (a.display_priority ?? 999) - (b.display_priority ?? 999))
+    .map((p) => ({ id: p.provider_id, name: p.provider_name, logoPath: p.logo_path ?? null }));
 }

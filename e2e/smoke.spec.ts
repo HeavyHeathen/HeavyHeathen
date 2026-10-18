@@ -16,8 +16,16 @@ test("setup, wishlist, rotation turn, history", async ({ page }) => {
   await page.goto("/wishlist");
   await page.getByPlaceholder("Search for a movie…").fill("arrival");
   await page.getByRole("button", { name: "Search" }).click();
+  // logos for where it streams show up in the search results, before adding
+  const results = page.getByRole("listitem").filter({ hasText: "Arrival" });
+  await expect(results.getByAltText("Netflix")).toBeAttached();
+  await expect(results.getByAltText("Hulu")).toBeAttached();
+  await expect(page.getByText("Streaming data by JustWatch")).toBeVisible();
   await page.getByRole("button", { name: "Add" }).first().click();
-  await expect(page.getByText("On Netflix")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add", exact: true })).toHaveCount(0); // add finished, result row removed
+  // and again on the wishlist row
+  await page.reload();
+  await expect(page.getByAltText("Netflix")).toBeAttached();
 
   // Sam's turn: pick and mark watched
   await page.goto("/");

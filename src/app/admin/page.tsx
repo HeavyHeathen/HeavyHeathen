@@ -1,20 +1,15 @@
-import { eq } from "drizzle-orm";
 import { db, schema } from "@/db/client";
 import { requireAdmin } from "@/lib/auth";
-import { getSetting, region, subscribedServices } from "@/lib/data";
-import type { RadarrConfig } from "@/lib/radarr";
-import { addMemberAction, decideDownload, removeMemberAction, saveSettings } from "../actions";
+import { region, subscribedServices } from "@/lib/data";
+import { listProviders } from "@/lib/tmdb";
+import { addMemberAction, removeMemberAction, saveSettings } from "../actions";
 
 export default async function AdminPage() {
   const me = await requireAdmin();
   const members = db.select().from(schema.members).all();
-  const radarr = getSetting<RadarrConfig | null>("radarr", null);
-  const requests = db
-    .select({ r: schema.downloadRequests, movie: schema.movies, by: schema.members })
-    .from(schema.downloadRequests)
-    .innerJoin(schema.movies, eq(schema.movies.tmdbId, schema.downloadRequests.tmdbId))
-    .innerJoin(schema.members, eq(schema.members.id, schema.downloadRequests.requestedBy))
-    .all();
+  const currentRegion = region();
+  const selected = subscribedServices();
+  const providers = await listProviders(currentRegion).catch(() => []);
 
   return (
     <div className="space-y-8">
@@ -40,41 +35,31 @@ export default async function AdminPage() {
         </form>
       </section>
 
-      <section className="card space-y-3">
-        <h2 className="font-semibold">Download requests</h2>
-        {requests.length === 0 && <p className="text-sm text-zinc-400">None yet.</p>}
-        {requests.map(({ r, movie, by }) => (
-          <div key={r.id} className="flex items-center gap-3 text-sm">
-            <span className="flex-1">{movie.title} · requested by {by.name} · <b>{r.status}</b>{r.error && <span className="text-rose-400"> {r.error.slice(0, 80)}</span>}</span>
-            {r.status === "pending" && (
-              <form action={decideDownload} className="flex gap-2">
-                <input type="hidden" name="id" value={r.id} />
-                <button name="decision" value="approve" className="btn">Approve</button>
-                <button name="decision" value="reject" className="btn-ghost">Reject</button>
-              </form>
-            )}
-          </div>
-        ))}
-      </section>
-
-      <form action={saveSettings} className="card space-y-3 text-sm">
-        <h2 className="font-semibold">Settings</h2>
-        <label className="block">Region (2-letter code)
-          <input name="region" defaultValue={region()} className="input ml-2 w-20" />
+      <form action={saveSettings} className="card space-y-4 text-sm">
+        <h2 className="font-semibold">Streaming</h2>
+        <label className="block">Region (2-letter code, then save to refresh the list below)
+          <input name="region" defaultValue={currentRegion} className="input ml-2 w-20" />
         </label>
-        <label className="block">Subscribed streaming provider IDs (comma separated, e.g. 8 = Netflix, 9 = Prime, 337 = Disney+, 1899 = Max)
-          <input name="subscribed" defaultValue={subscribedServices().join(",")} className="input mt-1 w-full" />
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" name="requireApproval" defaultChecked={getSetting<boolean>("requireApproval", true)} />
-          Require admin approval for download requests
-        </label>
-        <h3 className="pt-2 font-medium">Radarr</h3>
-        <input name="radarrUrl" placeholder="http://radarr:7878" defaultValue={radarr?.url ?? ""} className="input w-full" />
-        <input name="radarrKey" placeholder="API key" defaultValue={radarr?.apiKey ?? ""} className="input w-full" />
-        <div className="flex gap-2">
-          <input name="radarrProfile" type="number" placeholder="Quality profile id" defaultValue={radarr?.qualityProfileId ?? 1} className="input w-40" />
-          <input name="radarrRoot" placeholder="/data/movies" defaultValue={radarr?.rootFolder ?? "/data/movies"} className="input flex-1" />
+        <div>
+          <p className="mb-2">Which services does your household subscribe to?</p>
+          {providers.length === 0 ? (
+            <p className="text-zinc-500">Couldn&apos;t load services from TMDB. Check your API key.</p>
+          ) : (
+            <div className="grid max-h-80 grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-3 overflow-auto rounded-xl bg-zinc-950/60 p-3">
+              {providers.map((p) => (
+                <label key={p.id} className="relative cursor-pointer" title={p.name}>
+                  <input type="checkbox" name="subscribed" value={p.id} defaultChecked={selected.includes(p.id)} className="peer sr-only" />
+                  {p.logoPath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`https://image.tmdb.org/t/p/w92${p.logoPath}`} alt={p.name} className="h-14 w-14 rounded-xl opacity-40 ring-1 ring-white/10 transition peer-checked:opacity-100 peer-checked:ring-2 peer-checked:ring-amber-400" />
+                  ) : (
+                    <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-zinc-800 text-center text-[10px] opacity-40 peer-checked:opacity-100 peer-checked:ring-2 peer-checked:ring-amber-400">{p.name}</span>
+                  )}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-zinc-500">Selected services get an amber ring everywhere. Leave all unselected to treat any streaming service as yours.</p>
         </div>
         <button className="btn">Save settings</button>
       </form>

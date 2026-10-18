@@ -7,10 +7,8 @@ import { db, schema } from "@/db/client";
 import { checkPin, endSession, hashPin, requireAdmin, requireMember, startSession } from "@/lib/auth";
 import { ensureMovie, getSetting, setSetting, trailerFor, wishlistFor } from "@/lib/data";
 import { loadRotation, saveRotation, syncRotation } from "@/lib/rotation-store";
-import { dispatchApproved } from "@/lib/downloads";
 import { completeTurn, currentTurn, skipTurn as skip } from "@/lib/rotation";
 import { topTrailers, watchVideosUrl } from "@/lib/playlist";
-import type { RadarrConfig } from "@/lib/radarr";
 
 /* ---------- accounts ---------- */
 
@@ -68,20 +66,7 @@ export async function removeMemberAction(formData: FormData) {
 export async function saveSettings(formData: FormData) {
   await requireAdmin();
   setSetting("region", String(formData.get("region") ?? "US").toUpperCase());
-  setSetting(
-    "subscribed",
-    String(formData.get("subscribed") ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean),
-  );
-  setSetting("requireApproval", formData.get("requireApproval") === "on");
-  const url = String(formData.get("radarrUrl") ?? "").trim();
-  if (url) {
-    setSetting("radarr", {
-      url,
-      apiKey: String(formData.get("radarrKey") ?? ""),
-      qualityProfileId: Number(formData.get("radarrProfile") ?? 1),
-      rootFolder: String(formData.get("radarrRoot") ?? "/data/movies"),
-    } satisfies RadarrConfig);
-  }
+  setSetting("subscribed", formData.getAll("subscribed").map(Number).filter(Boolean));
   revalidatePath("/", "layout");
 }
 
@@ -210,31 +195,4 @@ export async function logPastWatch(formData: FormData) {
     })
     .run();
   revalidatePath("/history");
-}
-
-/* ---------- downloads ---------- */
-
-export async function requestDownload(tmdbId: number) {
-  const me = await requireMember();
-  await ensureMovie(tmdbId);
-  const needsApproval = getSetting<boolean>("requireApproval", true) && !me.isAdmin;
-  db.insert(schema.downloadRequests)
-    .values({ tmdbId, requestedBy: me.id, status: needsApproval ? "pending" : "approved", createdAt: Date.now() })
-    .onConflictDoNothing()
-    .run();
-  if (!needsApproval) await dispatchApproved();
-  revalidatePath("/wishlist");
-  revalidatePath("/admin");
-}
-
-export async function decideDownload(formData: FormData) {
-  await requireAdmin();
-  const id = Number(formData.get("id"));
-  const approve = formData.get("decision") === "approve";
-  db.update(schema.downloadRequests)
-    .set({ status: approve ? "approved" : "rejected" })
-    .where(eq(schema.downloadRequests.id, id))
-    .run();
-  if (approve) await dispatchApproved();
-  revalidatePath("/admin");
 }

@@ -3,24 +3,19 @@ import { useState, useTransition } from "react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { removeFromWishlist, reorderWishlist, requestDownload } from "@/app/actions";
+import { removeFromWishlist, reorderWishlist } from "@/app/actions";
+import type { Providers } from "@/db/schema";
+import { ProviderLogos } from "./ProviderLogos";
 
 export interface Row {
   tmdbId: number;
   title: string;
   year: number | null;
   posterPath: string | null;
-  badge: { label: string; tone: "good" | "info" | "neutral" | "bad" };
-  canRequest: boolean;
-  requestStatus: string | null;
+  providers: Providers;
+  subscribed: number[];
+  region: string;
 }
-
-const tones = {
-  good: "bg-emerald-900 text-emerald-200",
-  info: "bg-sky-900 text-sky-200",
-  neutral: "bg-zinc-700 text-zinc-200",
-  bad: "bg-rose-900 text-rose-200",
-};
 
 function Item({ row, index }: { row: Row; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: row.tmdbId });
@@ -39,12 +34,10 @@ function Item({ row, index }: { row: Row; index: number }) {
       ) : <div className="h-16 w-11 rounded bg-zinc-800" />}
       <div className="flex-1">
         <div className="font-medium">{row.title} {row.year && <span className="text-zinc-500">({row.year})</span>}</div>
-        <span className={`rounded-full px-2 py-0.5 text-xs ${tones[row.badge.tone]}`}>{row.badge.label}</span>
-        {row.requestStatus && <span className="ml-2 text-xs text-zinc-400">Download: {row.requestStatus}</span>}
+        <div className="mt-1.5">
+          <ProviderLogos providers={row.providers} subscribed={row.subscribed} region={row.region} compact />
+        </div>
       </div>
-      {row.canRequest && !row.requestStatus && (
-        <button className="btn-ghost" disabled={pending} onClick={() => start(() => requestDownload(row.tmdbId))}>Request download</button>
-      )}
       <button className="btn-ghost" disabled={pending} onClick={() => start(() => removeFromWishlist(row.tmdbId))} aria-label={`Remove ${row.title}`}>✕</button>
     </li>
   );

@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/auth";
 import { availabilityFor, membersByIds, watchedIds, wishlistFor } from "@/lib/data";
 import { currentTurn, defaultPick } from "@/lib/rotation";
 import { loadRotation } from "@/lib/rotation-store";
-import { AvailabilityBadge } from "@/components/AvailabilityBadge";
+import { JustWatchCredit, ProviderLogos } from "@/components/ProviderLogos";
 import { Poster } from "@/components/Poster";
 import { markWatched, planPick, skipTurnAction } from "./actions";
 
@@ -46,7 +46,7 @@ export default async function Tonight() {
           <Poster path={planned.movie.posterPath} title={planned.movie.title} className="h-48 w-32" />
           <div className="flex-1 space-y-3">
             <h2 className="text-2xl font-semibold">{planned.movie.title} <span className="text-zinc-500">({planned.movie.year})</span></h2>
-            {avail && <AvailabilityBadge status={avail} />}
+            {avail && <ProviderLogos providers={avail.providers} subscribed={avail.subscribed} region={avail.region} />}
             <p className="text-sm text-zinc-300">{planned.movie.overview}</p>
             <form action={markWatched} className="space-y-2">
               <input type="hidden" name="pickId" value={planned.pick.id} />
@@ -79,6 +79,8 @@ export default async function Tonight() {
           ))}
         </section>
       )}
+
+      <JustWatchCredit />
 
       <form action={skipTurnAction}>
         <button className="btn-ghost">{turnMember.name} isn&apos;t here, skip (they keep their turn)</button>

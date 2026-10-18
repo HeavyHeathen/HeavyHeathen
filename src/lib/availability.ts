@@ -21,7 +21,14 @@ export function classify(p: Providers, subscribed: number[]): AvailabilityStatus
   return { kind: "none" };
 }
 
-/** Offer a download when no subscribed service carries the movie. */
-export function shouldOfferDownload(s: AvailabilityStatus): boolean {
-  return s.kind !== "streaming";
+export const EMPTY_PROVIDERS: Providers = { flatrate: [], rent: [], buy: [] };
+
+/** Rows cached before logos were stored have no `logoPath` key and need a refetch. */
+export function hasLogos(p: Providers): boolean {
+  return [...p.flatrate, ...p.rent, ...p.buy].every((x) => "logoPath" in x);
+}
+
+/** Subscribed services first, then TMDB's own order. */
+export function sortProviders<T extends { id: number }>(list: T[], subscribed: number[]): T[] {
+  return [...list].sort((a, b) => Number(subscribed.includes(b.id)) - Number(subscribed.includes(a.id)));
 }

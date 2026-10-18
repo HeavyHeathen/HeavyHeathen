@@ -50,6 +50,6 @@ export async function suggestionsFor(memberId: number): Promise<Scored[]> {
   };
   const top = scoreCandidates(cands, taste, 12);
   // small availability bonus: re-score only the shortlist to limit TMDB calls
-  for (const t of top) t.streamingNow = (await availabilityFor(t.tmdbId).catch(() => null))?.kind === "streaming";
+  for (const t of top) t.streamingNow = (await availabilityFor(t.tmdbId).catch(() => null))?.status.kind === "streaming";
   return scoreCandidates(top, { ...taste, exclude: new Set() }, 12);
 }

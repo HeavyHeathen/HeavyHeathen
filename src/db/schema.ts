@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const members = sqliteTable("members", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -48,22 +48,6 @@ export const trailerCache = sqliteTable("trailer_cache", {
   fetchedAt: integer("fetched_at").notNull(),
 });
 
-export const downloadRequests = sqliteTable(
-  "download_requests",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    tmdbId: integer("tmdb_id").notNull().references(() => movies.tmdbId),
-    requestedBy: integer("requested_by").notNull().references(() => members.id),
-    status: text("status", {
-      enum: ["pending", "approved", "sent", "downloading", "available", "failed", "rejected"],
-    }).notNull().default("pending"),
-    radarrId: integer("radarr_id"),
-    error: text("error"),
-    createdAt: integer("created_at").notNull(),
-  },
-  (t) => ({ onePerMovie: uniqueIndex("dl_one_per_movie").on(t.tmdbId) }),
-);
-
 export const watchEvents = sqliteTable("watch_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   tmdbId: integer("tmdb_id").notNull().references(() => movies.tmdbId),
@@ -94,9 +78,15 @@ export const settings = sqliteTable("settings", {
   value: text("value", { mode: "json" }).$type<unknown>().notNull(),
 });
 
+export interface Provider {
+  id: number;
+  name: string;
+  logoPath: string | null;
+}
+
 export interface Providers {
-  flatrate: { id: number; name: string }[];
-  rent: { id: number; name: string }[];
-  buy: { id: number; name: string }[];
+  flatrate: Provider[];
+  rent: Provider[];
+  buy: Provider[];
   link?: string;
 }

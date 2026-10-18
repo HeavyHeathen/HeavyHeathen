@@ -1,6 +1,7 @@
 import { and, eq, asc, inArray } from "drizzle-orm";
 import { db, schema } from "@/db/client";
-import { classify, type AvailabilityStatus } from "./availability";
+import type { Providers } from "@/db/schema";
+import { classify, EMPTY_PROVIDERS, hasLogos, type AvailabilityStatus } from "./availability";
 import * as tmdb from "./tmdb";
 
 const DAY = 86_400_000;
@@ -30,15 +31,23 @@ export async function ensureMovie(tmdbId: number) {
   return db.select().from(schema.movies).where(eq(schema.movies.tmdbId, tmdbId)).get()!;
 }
 
-export async function availabilityFor(tmdbId: number): Promise<AvailabilityStatus> {
+export interface Availability {
+  status: AvailabilityStatus;
+  providers: Providers;
+  subscribed: number[];
+  region: string;
+}
+
+export async function availabilityFor(tmdbId: number): Promise<Availability> {
   const r = region();
+  const subscribed = subscribedServices();
   const row = db
     .select()
     .from(schema.availabilityCache)
     .where(and(eq(schema.availabilityCache.tmdbId, tmdbId), eq(schema.availabilityCache.region, r)))
     .get();
   let providers = row?.providers;
-  if (!row || Date.now() - row.fetchedAt > DAY) {
+  if (!row || Date.now() - row.fetchedAt > DAY || !hasLogos(row.providers)) {
     try {
       providers = await tmdb.getProviders(tmdbId, r);
       db.insert(schema.availabilityCache)
@@ -52,7 +61,8 @@ export async function availabilityFor(tmdbId: number): Promise<AvailabilityStatu
       // fall back to stale data if TMDB is unreachable
     }
   }
-  return classify(providers ?? { flatrate: [], rent: [], buy: [] }, subscribedServices());
+  const p = providers ?? EMPTY_PROVIDERS;
+  return { status: classify(p, subscribed), providers: p, subscribed, region: r };
 }
 
 export async function trailerFor(tmdbId: number): Promise<string | null> {

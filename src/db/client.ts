@@ -12,8 +12,17 @@ function open() {
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   sqlite.pragma("foreign_keys = ON");
+  sqlite.pragma("busy_timeout = 5000");
   const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: path.join(process.cwd(), "src/db/migrations") });
+  const migrationsFolder = path.join(process.cwd(), "src/db/migrations");
+  try {
+    migrate(db, { migrationsFolder });
+  } catch (e) {
+    // Several processes (e.g. parallel build workers) can race to run the first migration.
+    // The loser sees the winner's tables, so a second pass finds nothing left to do.
+    migrate(db, { migrationsFolder });
+    void e;
+  }
   return db;
 }
 
