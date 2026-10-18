@@ -1,7 +1,7 @@
 import { pickBestTrailer } from "./playlist";
 import type { Providers } from "@/db/schema";
 
-const BASE = "https://api.themoviedb.org/3";
+const BASE = process.env.TMDB_BASE_URL ?? "https://api.themoviedb.org/3";
 
 function key() {
   const k = process.env.TMDB_API_KEY;

@@ -1,0 +1,50 @@
+# Movie Night + optional download stack.
+#   docker compose up -d                       -> just the app
+#   docker compose --profile arr up -d         -> app + Radarr + Prowlarr + qBittorrent
+services:
+  movienight:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports: ["3000:3000"]
+    environment:
+      TMDB_API_KEY: ${TMDB_API_KEY:?set TMDB_API_KEY in .env}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+    volumes:
+      - movienight-data:/data
+
+  radarr:
+    profiles: [arr]
+    image: lscr.io/linuxserver/radarr:latest
+    restart: unless-stopped
+    environment: { PUID: 1000, PGID: 1000, TZ: "${TZ:-UTC}" }
+    ports: ["7878:7878"]
+    volumes:
+      - radarr-config:/config
+      - ${MEDIA_DIR:-./media}:/data
+
+  prowlarr:
+    profiles: [arr]
+    image: lscr.io/linuxserver/prowlarr:latest
+    restart: unless-stopped
+    environment: { PUID: 1000, PGID: 1000, TZ: "${TZ:-UTC}" }
+    ports: ["9696:9696"]
+    volumes:
+      - prowlarr-config:/config
+
+  qbittorrent:
+    profiles: [arr]
+    image: lscr.io/linuxserver/qbittorrent:latest
+    restart: unless-stopped
+    environment: { PUID: 1000, PGID: 1000, TZ: "${TZ:-UTC}", WEBUI_PORT: 8080 }
+    ports: ["8080:8080"]
+    volumes:
+      - qbittorrent-config:/config
+      - ${MEDIA_DIR:-./media}:/data
+
+volumes:
+  movienight-data:
+  radarr-config:
+  prowlarr-config:
+  qbittorrent-config:
